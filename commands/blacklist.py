@@ -9,6 +9,7 @@ class Blacklist(commands.Cog):
         self.bot = bot
         self.creators = [852888051432685608]
         self.db = "blacklist.db"
+        self.lifetime_duration = timedelta(days=50*365)
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -39,7 +40,7 @@ class Blacklist(commands.Cog):
         elif duration_type == "Years":
             return now + timedelta(days=duration*365)
         elif duration_type == "Lifetime":
-            return None
+            return now + self.lifetime_duration
     
 
     @tasks.loop(minutes=1)
@@ -48,11 +49,11 @@ class Blacklist(commands.Cog):
             result = await db.execute('SELECT * FROM blacklist')
             rows = await result.fetchall()
             for row in rows:
-                if row[3] != "Lifetime":
-                    expires_at = datetime.strptime(row[3], "%Y-%m-%d %H:%M:%S")
-                    if datetime.utcnow() > expires_at:
-                        await db.execute('DELETE FROM blacklist WHERE user_id = ?', (row[0],))
-                        await db.commit()
+                expires_at = datetime.strptime(row[3], "%Y-%m-%d %H:%M:%S")
+                if datetime.utcnow() > expires_at:
+                    await db.execute('DELETE FROM blacklist WHERE user_id = ?', (row[0],))
+                    await db.commit()
+
 
     @staticmethod
     async def is_blacklist(ctx):
@@ -65,7 +66,7 @@ class Blacklist(commands.Cog):
             embed = discord.Embed(title="You are Banned!", description=f"""
                 **Oh, it looks like you got banned from the bot**
                 > **Expires At:** {timestamp}
-                > **Moderator:** {ctx.guild.get_member(result[2]).mention}
+                > **Moderator:** <@{result[2]}>
                 
                 **Reason:**
                 ```{result[1]}```
